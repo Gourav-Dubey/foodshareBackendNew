@@ -7,6 +7,8 @@ import { Server } from "socket.io";
 
 import authRoutes from "./routes/auth.js";
 import donationRoutes from "./routes/donation.js";
+import aiRoutes from "./routes/ai.js";
+
 
 dotenv.config();
 
@@ -61,6 +63,8 @@ app.get("/", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/donation", donationRoutes);
+app.use("/api/ai", aiRoutes);
+
 
 // ✅ MongoDB connect
 mongoose
