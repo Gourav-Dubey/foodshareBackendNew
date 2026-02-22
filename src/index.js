@@ -28,11 +28,24 @@ const io = new Server(server, {
 });
 
 // ✅ Socket events
-io.on("connection", (socket) => {
-  console.log("🔌 New user connected:", socket.id);
+// io.on("connection", (socket) => {
+//   console.log("🔌 New user connected:", socket.id);
+
+//   socket.on("disconnect", () => {
+//     console.log("❌ User disconnected:", socket.id);
+//   });
+// });
+    io.on("connection", (socket) => {
+  console.log("🔌 Connected:", socket.id);
+
+  // User apne room mein join kare
+  socket.on("joinRoom", (userId) => {
+    socket.join(`donor_${userId}`);
+    console.log(`User ${userId} joined room donor_${userId}`);
+  });
 
   socket.on("disconnect", () => {
-    console.log("❌ User disconnected:", socket.id);
+    console.log("❌ Disconnected:", socket.id);
   });
 });
 
