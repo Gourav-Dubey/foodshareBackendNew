@@ -1,6 +1,6 @@
-import express from "express"; 
-import Donation from "../models/Donation.js"; 
-import upload from "../middlewares/upload.js"; 
+import express from "express";
+import Donation from "../models/Donation.js";
+import upload from "../middlewares/upload.js";
 import { verifyToken } from "./auth.js";
 
 const router = express.Router();
@@ -24,8 +24,8 @@ router.post("/", verifyToken, upload.single("photo"), async (req, res, next) => 
       createdBy: req.user.id,
     });
 
-    // ✅ Emit new donation
-    req.io.emit("newDonation", newDonation);
+    const populated = await Donation.findById(newDonation._id).populate("createdBy", "name email");
+    req.io.emit("newDonation", populated);
 
     res.status(201).json({ success: true, data: newDonation });
   } catch (err) {
@@ -34,40 +34,67 @@ router.post("/", verifyToken, upload.single("photo"), async (req, res, next) => 
   }
 });
 
-// ✅ Get pending donations
+// ✅ Donor apni donations (sirf apni)
+router.get("/my-donations", verifyToken, async (req, res, next) => {
+  try {
+    const donations = await Donation.find({ createdBy: req.user.id })
+      .populate("acceptedBy", "name email") // ✅ YE ADD KARO
+      .sort({ createdAt: -1 });
+    res.json({ success: true, data: donations });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ✅ NGO ke liye pending (sabki)
 router.get("/pending", verifyToken, async (req, res, next) => {
   try {
-    const donations = await Donation.find({ status: "pending" });
+    if (req.user.role !== "ngo") {
+      return res.status(403).json({ success: false, error: "Only NGOs can view pending donations" });
+    }
+    const donations = await Donation.find({ status: "pending" })
+      .populate("createdBy", "name email")
+      .sort({ createdAt: -1 });
     res.json({ success: true, data: donations });
   } catch (err) {
     next(err);
   }
 });
 
-// ✅ Get accepted donations
+// NGO ke sirf apne accepted
 router.get("/accepted", verifyToken, async (req, res, next) => {
   try {
-    const donations = await Donation.find({ status: "accepted" }).populate("acceptedBy", "name email");
+    if (req.user.role !== "ngo") {
+      return res.status(403).json({ success: false, error: "Only NGOs can view accepted donations" });
+    }
+    const donations = await Donation.find({
+      status: "accepted",
+      acceptedBy: req.user.id,
+    })
+      .populate("createdBy", "name email")
+      .populate("acceptedBy", "name email") // ✅ YE ADD KARO
+      .sort({ createdAt: -1 });
     res.json({ success: true, data: donations });
   } catch (err) {
     next(err);
   }
 });
 
-// ✅ NGO accepts donation
+// NGO accepts donation
 router.put("/accept/:id", verifyToken, async (req, res, next) => {
   try {
-    if (req.user.role !== "ngo") return res.status(403).json({ success: false, error: "Only NGOs can accept donations" });
-
+    if (req.user.role !== "ngo") {
+      return res.status(403).json({ success: false, error: "Only NGOs can accept donations" });
+    }
     const donation = await Donation.findByIdAndUpdate(
       req.params.id,
       { status: "accepted", acceptedBy: req.user.id },
       { new: true }
-    );
+    )
+      .populate("createdBy", "name email")
+      .populate("acceptedBy", "name email"); // ✅ YE ADD KARO
 
-    // ✅ Emit donation accepted
     req.io.emit("donationAccepted", donation);
-
     res.json({ success: true, data: donation });
   } catch (err) {
     next(err);
@@ -77,17 +104,16 @@ router.put("/accept/:id", verifyToken, async (req, res, next) => {
 // ✅ NGO cancels donation
 router.put("/cancel/:id", verifyToken, async (req, res, next) => {
   try {
-    if (req.user.role !== "ngo") return res.status(403).json({ success: false, error: "Only NGOs can cancel donations" });
-
+    if (req.user.role !== "ngo") {
+      return res.status(403).json({ success: false, error: "Only NGOs can cancel donations" });
+    }
     const donation = await Donation.findByIdAndUpdate(
       req.params.id,
       { status: "pending", acceptedBy: null },
       { new: true }
-    );
+    ).populate("createdBy", "name email");
 
-    // ✅ Emit donation cancelled
     req.io.emit("donationCancelled", donation);
-
     res.json({ success: true, data: donation });
   } catch (err) {
     next(err);
