@@ -129,11 +129,17 @@ router.get("/pending", verifyToken, async (req, res, next) => {
 });
 
 // ✅ NGO accepted donations
+// ✅ accepted + completed dono fetch karo
 router.get("/accepted", verifyToken, async (req, res, next) => {
   try {
     if (req.user.role !== "ngo") return res.status(403).json({ success: false, error: "Only NGOs" });
-    const donations = await Donation.find({ status: "accepted", acceptedBy: req.user.id })
-      .populate("createdBy", "name email").populate("acceptedBy", "name email").sort({ createdAt: -1 });
+    const donations = await Donation.find({ 
+      status: { $in: ["accepted", "completed"] },  // ✅ dono
+      acceptedBy: req.user.id 
+    })
+      .populate("createdBy", "name email")
+      .populate("acceptedBy", "name email")
+      .sort({ createdAt: -1 });
     res.json({ success: true, data: donations });
   } catch (err) { next(err); }
 });
