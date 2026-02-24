@@ -7,50 +7,40 @@ const router = express.Router();
 
 // Geocoding helper
 const geocodeAddress = async (address) => {
-  try {
-    // Multiple geocoding try karo — fallback ke saath
-    const queries = [
-      `${address}, India`,
-      `${address}, Madhya Pradesh, India`,
-      address
-    ];
+  // Multiple queries try karo — best match milega
+  const queries = [
+    `${address}, Madhya Pradesh, India`,
+    `${address}, India`,
+    address,
+  ];
 
-    for (const query of queries) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
-        
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`,
-          {
-            signal: controller.signal,
-            headers: {
-              "User-Agent": "FoodShare App/1.0 contact@foodshare.com",
-              "Accept-Language": "en-US,en;q=0.9",
-              "Referer": "https://foodshare-nine.vercel.app"
-            }
+  for (const query of queries) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=3&countrycodes=in&addressdetails=1`,
+        {
+          signal: controller.signal,
+          headers: {
+            "User-Agent": "FoodShare/1.0 contact@foodshare.com",
+            "Accept-Language": "en",
           }
-        );
-        clearTimeout(timeoutId);
-
-        if (!res.ok) continue;
-
-        const data = await res.json();
-        console.log(`Geocoding "${query}":`, data.length > 0 ? `${data[0].lat}, ${data[0].lon}` : "not found");
-
-        if (data.length > 0) {
-          return {
-            lat: parseFloat(data[0].lat),
-            lng: parseFloat(data[0].lon)
-          };
         }
-      } catch (e) {
-        console.warn(`Geocoding attempt failed for "${query}":`, e.message);
-        continue;
+      );
+      clearTimeout(timeoutId);
+
+      if (!res.ok) continue;
+      const data = await res.json();
+      console.log(`Geocoding "${query}":`, data.length > 0 ? `${data[0].lat}, ${data[0].lon} — ${data[0].display_name}` : "not found");
+
+      if (data.length > 0) {
+        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
       }
+    } catch (e) {
+      console.warn(`Geocoding failed for "${query}":`, e.message);
     }
-  } catch (err) {
-    console.warn("All geocoding attempts failed:", err.message);
   }
   return { lat: null, lng: null };
 };
